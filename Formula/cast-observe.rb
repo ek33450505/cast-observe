@@ -2,7 +2,7 @@ class CastObserve < Formula
   desc "Session-level observability for Claude Code"
   homepage "https://github.com/ek33450505/cast-observe"
   url "https://github.com/ek33450505/cast-observe/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "PLACEHOLDER_SHA256"
+  sha256 "ffc58e4eeaf0108d7a252609a421f0332356beaa6f8855f9776c74976a4c0290"
   license "MIT"
   version "0.1.0"
 
