@@ -1,0 +1,24 @@
+name: Docs Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  readme-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check README install instructions
+        run: |
+          if ! grep -q 'brew tap' README.md; then
+            echo 'ERROR: README.md missing brew tap line'
+            exit 1
+          fi
+          if ! grep -q 'cast-observe install' README.md; then
+            echo 'ERROR: README.md missing cast-observe install step'
+            exit 1
+          fi
+          echo 'README checks passed'

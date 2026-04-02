@@ -1,0 +1,60 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in cast-observe
+labels: [bug]
+title: "[Bug] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: cast-observe Version
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options: [macOS, Linux]
+    validations:
+      required: true
+  - type: dropdown
+    id: script
+    attributes:
+      label: Hook Script or CLI Command
+      options:
+        - observe-session-start.sh
+        - observe-session-end.sh
+        - observe-cost-tracker.sh
+        - observe-subagent-start.sh
+        - observe-subagent-stop.sh
+        - observe-budget-alert.sh
+        - observe-db-init.sh
+        - cast-observe CLI
+        - other
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+  - type: input
+    id: db-path
+    attributes:
+      label: DB Path
+      description: Output of `cast-observe db path`
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context

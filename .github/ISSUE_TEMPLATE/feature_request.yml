@@ -1,0 +1,42 @@
+name: Feature Request
+description: Suggest a new subcommand, hook, or improvement
+labels: [enhancement]
+title: "[Feature] "
+body:
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      options:
+        - New CLI Subcommand
+        - New Hook Script
+        - DB Schema Change
+        - Install Improvement
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: What observability gap does this fill?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+  - type: dropdown
+    id: willing
+    attributes:
+      label: Willing to Implement?
+      options:
+        - "Yes"
+        - "No"
+        - "Maybe"

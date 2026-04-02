@@ -1,0 +1,24 @@
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review the changed files in this PR for cast-observe. Focus on:
+            1. BATS test coverage for any new or modified shell scripts
+            2. Hook script defensiveness: empty stdin handling, set +e, exit 0 always
+            3. SQL safety: IF NOT EXISTS, no destructive schema changes
+            4. No hardcoded paths — use $HOME or ~/
+            Post findings as a PR comment. Cite file:line for each issue.

@@ -5,27 +5,30 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 6 * * *'
 
 jobs:
-  test:
+  bats:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run installer
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install sqlite3
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get install -y sqlite3
+          else
+            brew install sqlite3 || true
+          fi
+      - name: Install cast-observe
         run: CI=true bash install.sh
-
       - name: Verify version
         run: cast-observe --version
-
-      - name: Verify DB path
-        run: cast-observe db path
-
-      - name: Idempotency check (re-run db init)
-        run: bash scripts/observe-db-init.sh
+      - name: Run BATS suite
+        run: tests/bats/bin/bats tests/install.bats tests/cli.bats tests/hooks.bats tests/db.bats --tap
