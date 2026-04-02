@@ -13,6 +13,7 @@ class CastObserve < Formula
     libexec.install Dir["config/*"]
     libexec.install "settings.json"
     libexec.install "VERSION"
+    prefix.install "VERSION"
 
     inreplace "bin/cast-observe",
               'OBSERVE_SCRIPTS_DIR=""',
