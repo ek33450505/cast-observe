@@ -18,6 +18,10 @@ class CastObserve < Formula
               'OBSERVE_SCRIPTS_DIR=""',
               "OBSERVE_SCRIPTS_DIR=\"#{libexec}\""
 
+    inreplace "bin/cast-observe",
+              /CO_VERSION="\$\(cat.*\|\| echo "unknown"\)"/,
+              "CO_VERSION=\"#{version}\""
+
     bin.install "bin/cast-observe"
   end
 

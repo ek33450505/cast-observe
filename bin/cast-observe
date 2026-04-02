@@ -13,11 +13,15 @@ set -uo pipefail
 CO_BIN_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
 CO_REPO_DIR="$(cd "$CO_BIN_DIR/.." && pwd)"
 
-# ── Version ──────────────────────────────────────────────────────────────────
-CO_VERSION="$(cat "${CO_REPO_DIR}/VERSION" 2>/dev/null || echo "unknown")"
-
 # ── Scripts directory — replaced by Homebrew formula at install time ─────────
 OBSERVE_SCRIPTS_DIR=""
+
+# ── Version ──────────────────────────────────────────────────────────────────
+if [ -n "${OBSERVE_SCRIPTS_DIR:-}" ]; then
+  CO_VERSION="$(cat "${OBSERVE_SCRIPTS_DIR}/VERSION" 2>/dev/null || echo "unknown")"
+else
+  CO_VERSION="$(cat "${CO_REPO_DIR}/VERSION" 2>/dev/null || echo "unknown")"
+fi
 
 # ── DB path ──────────────────────────────────────────────────────────────────
 DB_PATH="${CAST_DB_PATH:-${HOME}/.claude/cast.db}"
