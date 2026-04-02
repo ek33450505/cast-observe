@@ -1,0 +1,486 @@
+#!/usr/bin/env bash
+# cast-observe — Session-level observability CLI for Claude Code
+#
+# Usage: cast-observe <subcommand> [args]
+#
+# Subcommands: status, budget, sessions, db, install
+#
+# DB: $CAST_DB_PATH or ~/.claude/cast.db
+
+set -uo pipefail
+
+# ── Script directory (resolve symlinks) ──────────────────────────────────────
+CO_BIN_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
+CO_REPO_DIR="$(cd "$CO_BIN_DIR/.." && pwd)"
+
+# ── Version ──────────────────────────────────────────────────────────────────
+CO_VERSION="$(cat "${CO_REPO_DIR}/VERSION" 2>/dev/null || echo "unknown")"
+
+# ── Scripts directory — replaced by Homebrew formula at install time ─────────
+OBSERVE_SCRIPTS_DIR=""
+
+# ── DB path ──────────────────────────────────────────────────────────────────
+DB_PATH="${CAST_DB_PATH:-${HOME}/.claude/cast.db}"
+
+# ── Colors ────────────────────────────────────────────────────────────────────
+if [ -t 1 ] && [ "${TERM:-}" != "dumb" ]; then
+  C_BOLD='\033[1m'
+  C_GREEN='\033[0;32m'
+  C_YELLOW='\033[0;33m'
+  C_CYAN='\033[0;36m'
+  C_RED='\033[0;31m'
+  C_DIM='\033[2m'
+  C_RESET='\033[0m'
+else
+  C_BOLD='' C_GREEN='' C_YELLOW='' C_CYAN='' C_RED='' C_DIM='' C_RESET=''
+fi
+
+_info()    { printf "${C_CYAN}%s${C_RESET}\n" "$*"; }
+_success() { printf "${C_GREEN}%s${C_RESET}\n" "$*"; }
+_warn()    { printf "${C_YELLOW}%s${C_RESET}\n" "$*" >&2; }
+_error()   { printf "${C_RED}Error: %s${C_RESET}\n" "$*" >&2; }
+_bold()    { printf "${C_BOLD}%s${C_RESET}\n" "$*"; }
+_dim()     { printf "${C_DIM}%s${C_RESET}\n" "$*"; }
+
+_require_db() {
+  if [ ! -f "$DB_PATH" ]; then
+    _error "cast.db not found at $DB_PATH"
+    printf "  Run: cast-observe install\n" >&2
+    exit 1
+  fi
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    _error "sqlite3 not found in PATH"
+    exit 1
+  fi
+}
+
+_db() {
+  sqlite3 "$DB_PATH" "$@"
+}
+
+# ── Subcommand: status ────────────────────────────────────────────────────────
+_cmd_status() {
+  _require_db
+
+  local db_size
+  db_size="$(du -sh "$DB_PATH" 2>/dev/null | awk '{print $1}' || echo "?")"
+
+  local sessions_today
+  sessions_today="$(_db "SELECT COUNT(*) FROM sessions WHERE started_at LIKE '$(date +%Y-%m-%d)%';" 2>/dev/null || echo 0)"
+
+  local cost_today
+  cost_today="$(_db "SELECT PRINTF('%.4f', COALESCE(SUM(total_cost_usd),0)) FROM sessions WHERE started_at LIKE '$(date +%Y-%m-%d)%';" 2>/dev/null || echo "0.0000")"
+
+  printf "\n"
+  _bold "cast-observe v${CO_VERSION} — Status"
+  printf "${C_DIM}%s${C_RESET}\n" "════════════════════════════════════"
+  printf "  DB:              %s (%s)\n" "$DB_PATH" "$db_size"
+  printf "  Sessions today:  %s\n" "$sessions_today"
+  printf "  Cost today:      \$%s\n" "$cost_today"
+  printf "\n"
+  _bold "Recent agent runs:"
+  printf "${C_DIM}%s${C_RESET}\n" "────────────────────────────────────"
+  _db -separator " | " "
+    SELECT
+      SUBSTR(COALESCE(agent,'?'),1,20) AS agent,
+      COALESCE(status,'?') AS status,
+      PRINTF('\$%.4f', COALESCE(cost_usd,0)) AS cost,
+      SUBSTR(COALESCE(started_at,''),1,16) AS started
+    FROM agent_runs
+    ORDER BY id DESC
+    LIMIT 5;
+  " 2>/dev/null | while IFS=' | ' read -r agent status cost started; do
+    printf "  %-22s %-18s %-12s %s\n" "$agent" "$status" "$cost" "$started"
+  done
+  printf "\n"
+}
+
+# ── Subcommand: budget ────────────────────────────────────────────────────────
+_cmd_budget() {
+  _require_db
+
+  local week_flag=0
+  local project_filter=""
+
+  while [ "${#}" -gt 0 ]; do
+    case "$1" in
+      --week)
+        week_flag=1
+        shift
+        ;;
+      --project)
+        project_filter="${2:-}"
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
+  local today
+  today="$(date +%Y-%m-%d)"
+
+  printf "\n"
+  _bold "cast-observe — Budget Summary"
+  printf "${C_DIM}%s${C_RESET}\n" "════════════════════════════════════"
+
+  # Today's totals
+  local where_clause=""
+  if [ -n "$project_filter" ]; then
+    where_clause="AND project = '${project_filter//\'/\'\'}'"
+  fi
+
+  _db "
+    SELECT
+      COALESCE(SUM(total_input_tokens),0)  AS input_tok,
+      COALESCE(SUM(total_output_tokens),0) AS output_tok,
+      PRINTF('\$%.4f', COALESCE(SUM(total_cost_usd),0)) AS cost
+    FROM sessions
+    WHERE started_at LIKE '${today}%' ${where_clause};
+  " 2>/dev/null | while IFS='|' read -r input_tok output_tok cost; do
+    printf "  Today (%s):\n" "$today"
+    printf "    Input tokens:   %s\n" "$input_tok"
+    printf "    Output tokens:  %s\n" "$output_tok"
+    printf "    Cost:           %s\n" "$cost"
+  done
+
+  # Weekly totals
+  _db "
+    SELECT
+      COALESCE(SUM(total_input_tokens),0)  AS input_tok,
+      COALESCE(SUM(total_output_tokens),0) AS output_tok,
+      PRINTF('\$%.4f', COALESCE(SUM(total_cost_usd),0)) AS cost
+    FROM sessions
+    WHERE started_at >= datetime('now', '-7 days') ${where_clause};
+  " 2>/dev/null | while IFS='|' read -r input_tok output_tok cost; do
+    printf "\n  This week:\n"
+    printf "    Input tokens:   %s\n" "$input_tok"
+    printf "    Output tokens:  %s\n" "$output_tok"
+    printf "    Cost:           %s\n" "$cost"
+  done
+
+  # Per-agent breakdown (top 5 by cost)
+  printf "\n"
+  _bold "  Top agents by cost (all time):"
+  _db "
+    SELECT
+      SUBSTR(COALESCE(agent,'?'),1,25) AS agent,
+      COUNT(*) AS runs,
+      PRINTF('\$%.4f', COALESCE(SUM(cost_usd),0)) AS cost
+    FROM agent_runs
+    ${project_filter:+"WHERE project = '${project_filter//\'/\'\'}'" }
+    GROUP BY agent
+    ORDER BY SUM(cost_usd) DESC
+    LIMIT 5;
+  " 2>/dev/null | while IFS='|' read -r agent runs cost; do
+    printf "    %-27s %4s runs  %s\n" "$agent" "$runs" "$cost"
+  done
+
+  # Active budget limits
+  local budget_row
+  budget_row="$(_db "SELECT limit_usd, alert_at_pct FROM budgets WHERE scope='global' AND period='daily' ORDER BY id DESC LIMIT 1;" 2>/dev/null || echo "")"
+  if [ -n "$budget_row" ]; then
+    printf "\n"
+    _bold "  Active budget:"
+    echo "$budget_row" | while IFS='|' read -r limit pct; do
+      printf "    Daily limit: \$%s  (alert at %s%%)\n" "$limit" "$(python3 -c "print(int(float('${pct:-0.8}')*100))" 2>/dev/null || echo 80)"
+    done
+  fi
+
+  # Daily breakdown for --week flag
+  if [ "$week_flag" -eq 1 ]; then
+    printf "\n"
+    _bold "  Daily breakdown (last 7 days):"
+    _db "
+      SELECT
+        SUBSTR(started_at,1,10) AS day,
+        COUNT(DISTINCT id) AS sessions,
+        PRINTF('\$%.4f', COALESCE(SUM(total_cost_usd),0)) AS cost
+      FROM sessions
+      WHERE started_at >= datetime('now', '-7 days') ${where_clause}
+      GROUP BY day
+      ORDER BY day DESC;
+    " 2>/dev/null | while IFS='|' read -r day sessions cost; do
+      printf "    %s  %2s sessions  %s\n" "$day" "$sessions" "$cost"
+    done
+  fi
+
+  printf "\n"
+}
+
+# ── Subcommand: sessions ──────────────────────────────────────────────────────
+_cmd_sessions() {
+  _require_db
+
+  local limit=20
+  local project_filter=""
+
+  while [ "${#}" -gt 0 ]; do
+    case "$1" in
+      --limit)
+        limit="${2:-20}"
+        shift 2
+        ;;
+      --project)
+        project_filter="${2:-}"
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
+  local where_clause=""
+  if [ -n "$project_filter" ]; then
+    where_clause="WHERE project = '${project_filter//\'/\'\'}'"
+  fi
+
+  printf "\n"
+  _bold "cast-observe — Recent Sessions (limit: ${limit})"
+  printf "${C_DIM}%s${C_RESET}\n" "════════════════════════════════════════════════════════════"
+  printf "  %-12s  %-16s  %-20s  %-12s  %-12s  %s\n" \
+    "session_id" "started_at" "project" "model" "cost_usd" "status"
+  printf "${C_DIM}  %s${C_RESET}\n" "────────────────────────────────────────────────────────────"
+
+  _db "
+    SELECT
+      SUBSTR(COALESCE(id,'?'),1,12) AS sid,
+      SUBSTR(COALESCE(started_at,''),1,16) AS started,
+      SUBSTR(COALESCE(project,'?'),1,20) AS proj,
+      SUBSTR(COALESCE(model,'?'),1,12) AS model,
+      PRINTF('\$%.4f', COALESCE(total_cost_usd,0)) AS cost,
+      COALESCE(ended_at,'active') AS status
+    FROM sessions
+    ${where_clause}
+    ORDER BY started_at DESC
+    LIMIT ${limit};
+  " 2>/dev/null | while IFS='|' read -r sid started proj model cost status; do
+    local status_display="active"
+    if [ "$status" != "active" ]; then
+      status_display="ended"
+    fi
+    printf "  %-12s  %-16s  %-20s  %-12s  %-12s  %s\n" \
+      "$sid" "$started" "$proj" "$model" "$cost" "$status_display"
+  done
+
+  printf "\n"
+}
+
+# ── Subcommand: db ────────────────────────────────────────────────────────────
+_cmd_db() {
+  local subcmd="${1:-}"
+  shift 2>/dev/null || true
+
+  case "$subcmd" in
+    path)
+      echo "$DB_PATH"
+      ;;
+    size)
+      if [ -f "$DB_PATH" ]; then
+        du -sh "$DB_PATH" | awk '{print $1}'
+      else
+        _error "cast.db not found at $DB_PATH"
+        exit 1
+      fi
+      ;;
+    query)
+      _require_db
+      local sql="${1:-}"
+      if [ -z "$sql" ]; then
+        _error "Usage: cast-observe db query \"<sql>\""
+        exit 1
+      fi
+      # Reject non-SELECT queries
+      local first_word
+      first_word="$(echo "$sql" | awk '{print toupper($1)}')"
+      if [ "$first_word" != "SELECT" ] && [ "$first_word" != "WITH" ]; then
+        _error "Only SELECT queries are allowed"
+        exit 1
+      fi
+      _db "$sql"
+      ;;
+    *)
+      cat <<USAGE
+Usage: cast-observe db <subcommand>
+
+  path    Print path to cast.db
+  query   Run a read-only SQL query (SELECT only)
+  size    Print file size of cast.db
+
+Examples:
+  cast-observe db path
+  cast-observe db size
+  cast-observe db query "SELECT COUNT(*) FROM sessions"
+USAGE
+      ;;
+  esac
+}
+
+# ── Subcommand: install ───────────────────────────────────────────────────────
+_cmd_install() {
+  printf "\n"
+  _bold "cast-observe install"
+  printf "${C_DIM}%s${C_RESET}\n" "════════════════════════════════════"
+
+  # Determine scripts source directory
+  local src_dir="${OBSERVE_SCRIPTS_DIR}"
+  if [ -z "$src_dir" ]; then
+    src_dir="${CO_REPO_DIR}/scripts"
+  fi
+
+  if [ ! -d "$src_dir" ]; then
+    _error "Scripts directory not found: $src_dir"
+    exit 1
+  fi
+
+  # Step 1: Create directories
+  mkdir -p "${HOME}/.claude/scripts" \
+           "${HOME}/.claude/config" \
+           "${HOME}/.claude/observe" \
+           "${HOME}/.claude/logs"
+  _success "  Directories created"
+
+  # Step 2: Copy scripts
+  local copied=0
+  for f in "${src_dir}"/observe-*.sh "${src_dir}"/observe_db.py; do
+    [ -f "$f" ] || continue
+    cp "$f" "${HOME}/.claude/scripts/"
+    chmod +x "${HOME}/.claude/scripts/$(basename "$f")" 2>/dev/null || true
+    copied=$((copied + 1))
+  done
+  _success "  Scripts installed: ${copied} files → ~/.claude/scripts/"
+
+  # Step 3: Copy model-pricing.json
+  local pricing_src="${OBSERVE_SCRIPTS_DIR:-${CO_REPO_DIR}}/config/model-pricing.json"
+  if [ -z "$OBSERVE_SCRIPTS_DIR" ]; then
+    pricing_src="${CO_REPO_DIR}/config/model-pricing.json"
+  fi
+  if [ -f "$pricing_src" ]; then
+    cp "$pricing_src" "${HOME}/.claude/config/model-pricing.json"
+    _success "  model-pricing.json → ~/.claude/config/"
+  fi
+
+  # Step 4: Initialize DB
+  if bash "${HOME}/.claude/scripts/observe-db-init.sh" 2>/dev/null; then
+    _success "  Database initialized at $DB_PATH"
+  else
+    _warn "  Database init skipped (already exists or sqlite3 not found)"
+  fi
+
+  # Step 5: Merge settings.json
+  local settings_src="${OBSERVE_SCRIPTS_DIR:-${CO_REPO_DIR}}/settings.json"
+  if [ -z "$OBSERVE_SCRIPTS_DIR" ]; then
+    settings_src="${CO_REPO_DIR}/settings.json"
+  fi
+  local settings_dst="${HOME}/.claude/settings.json"
+
+  if [ -f "$settings_src" ]; then
+    if [ ! -f "$settings_dst" ]; then
+      cp "$settings_src" "$settings_dst"
+      _success "  settings.json created at ~/.claude/settings.json"
+    else
+      # Non-destructive merge: add cast-observe hooks, preserve existing
+      SETTINGS_SRC="$settings_src" SETTINGS_DST="$settings_dst" \
+      python3 - <<'PYEOF' 2>/dev/null && _success "  settings.json hooks merged (non-destructive)" || _warn "  settings.json merge skipped (manual merge may be needed)"
+import json, os
+
+src_path = os.environ['SETTINGS_SRC']
+dst_path = os.environ['SETTINGS_DST']
+
+with open(src_path) as f:
+    src = json.load(f)
+with open(dst_path) as f:
+    dst = json.load(f)
+
+src_hooks = src.get('hooks', {})
+dst_hooks = dst.setdefault('hooks', {})
+
+for event, event_hooks in src_hooks.items():
+    if event not in dst_hooks:
+        dst_hooks[event] = event_hooks
+    else:
+        # Append cast-observe hook groups not already present
+        existing_commands = set()
+        for group in dst_hooks[event]:
+            for hook in group.get('hooks', []):
+                existing_commands.add(hook.get('command', ''))
+        for group in event_hooks:
+            for hook in group.get('hooks', []):
+                if hook.get('command', '') not in existing_commands:
+                    dst_hooks[event].append(group)
+                    break
+
+with open(dst_path, 'w') as f:
+    json.dump(dst, f, indent=2)
+    f.write('\n')
+PYEOF
+    fi
+  fi
+
+  printf "\n"
+  _bold "Next steps:"
+  printf "  1. Start a Claude Code session\n"
+  printf "  2. Run: cast-observe status\n"
+  printf "  3. Run: cast-observe budget\n\n"
+  _success "cast-observe is ready."
+  printf "\n"
+}
+
+# ── Usage ─────────────────────────────────────────────────────────────────────
+_usage() {
+  cat <<USAGE
+${C_BOLD}cast-observe v${CO_VERSION}${C_RESET} — Session-level observability for Claude Code
+
+Usage: cast-observe <subcommand> [args]
+
+Subcommands:
+  ${C_BOLD}status${C_RESET}                            Terminal dashboard: DB, sessions today, cost, recent runs
+  ${C_BOLD}budget${C_RESET}   [--week] [--project <n>] Cost summary: tokens, cost, per-agent breakdown
+  ${C_BOLD}sessions${C_RESET} [--project <n>] [--limit N] List recent sessions
+  ${C_BOLD}db${C_RESET}       path|query|size            DB inspection utilities
+  ${C_BOLD}install${C_RESET}                            Post-install setup: copy scripts, init DB, merge settings
+
+Global flags:
+  --version, -v    Print version
+  --help, -h       Show this help
+
+DB: ${DB_PATH}
+USAGE
+}
+
+# ── Main dispatch ─────────────────────────────────────────────────────────────
+case "${1:-}" in
+  status)
+    shift
+    _cmd_status "$@"
+    ;;
+  budget)
+    shift
+    _cmd_budget "$@"
+    ;;
+  sessions)
+    shift
+    _cmd_sessions "$@"
+    ;;
+  db)
+    shift
+    _cmd_db "$@"
+    ;;
+  install)
+    shift
+    _cmd_install "$@"
+    ;;
+  --version|-v)
+    echo "cast-observe v${CO_VERSION}"
+    ;;
+  --help|-h|help|"")
+    _usage
+    ;;
+  *)
+    _error "Unknown subcommand: ${1}"
+    printf "Run 'cast-observe --help' for usage.\n" >&2
+    exit 1
+    ;;
+esac

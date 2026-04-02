@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run installer
+        run: CI=true bash install.sh
+
+      - name: Verify version
+        run: cast-observe --version
+
+      - name: Verify DB path
+        run: cast-observe db path
+
+      - name: Idempotency check (re-run db init)
+        run: bash scripts/observe-db-init.sh
