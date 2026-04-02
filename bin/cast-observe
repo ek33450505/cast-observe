@@ -73,7 +73,7 @@ _cmd_status() {
   sessions_today="$(_db "SELECT COUNT(*) FROM sessions WHERE started_at LIKE '$(date +%Y-%m-%d)%';" 2>/dev/null || echo 0)"
 
   local cost_today
-  cost_today="$(_db "SELECT PRINTF('%.4f', COALESCE(SUM(total_cost_usd),0)) FROM sessions WHERE started_at LIKE '$(date +%Y-%m-%d)%';" 2>/dev/null || echo "0.0000")"
+  cost_today="$(_db "SELECT PRINTF('%.4f', COALESCE(SUM(cost_usd),0)) FROM agent_runs WHERE started_at LIKE '$(date +%Y-%m-%d)%';" 2>/dev/null || echo "0.0000")"
 
   printf "\n"
   _bold "cast-observe v${CO_VERSION} — Status"
@@ -137,10 +137,10 @@ _cmd_budget() {
 
   _db "
     SELECT
-      COALESCE(SUM(total_input_tokens),0)  AS input_tok,
-      COALESCE(SUM(total_output_tokens),0) AS output_tok,
-      PRINTF('\$%.4f', COALESCE(SUM(total_cost_usd),0)) AS cost
-    FROM sessions
+      COALESCE(SUM(input_tokens),0)  AS input_tok,
+      COALESCE(SUM(output_tokens),0) AS output_tok,
+      PRINTF('\$%.4f', COALESCE(SUM(cost_usd),0)) AS cost
+    FROM agent_runs
     WHERE started_at LIKE '${today}%' ${where_clause};
   " 2>/dev/null | while IFS='|' read -r input_tok output_tok cost; do
     printf "  Today (%s):\n" "$today"
@@ -152,10 +152,10 @@ _cmd_budget() {
   # Weekly totals
   _db "
     SELECT
-      COALESCE(SUM(total_input_tokens),0)  AS input_tok,
-      COALESCE(SUM(total_output_tokens),0) AS output_tok,
-      PRINTF('\$%.4f', COALESCE(SUM(total_cost_usd),0)) AS cost
-    FROM sessions
+      COALESCE(SUM(input_tokens),0)  AS input_tok,
+      COALESCE(SUM(output_tokens),0) AS output_tok,
+      PRINTF('\$%.4f', COALESCE(SUM(cost_usd),0)) AS cost
+    FROM agent_runs
     WHERE started_at >= datetime('now', '-7 days') ${where_clause};
   " 2>/dev/null | while IFS='|' read -r input_tok output_tok cost; do
     printf "\n  This week:\n"
@@ -199,9 +199,9 @@ _cmd_budget() {
     _db "
       SELECT
         SUBSTR(started_at,1,10) AS day,
-        COUNT(DISTINCT id) AS sessions,
-        PRINTF('\$%.4f', COALESCE(SUM(total_cost_usd),0)) AS cost
-      FROM sessions
+        COUNT(DISTINCT session_id) AS sessions,
+        PRINTF('\$%.4f', COALESCE(SUM(cost_usd),0)) AS cost
+      FROM agent_runs
       WHERE started_at >= datetime('now', '-7 days') ${where_clause}
       GROUP BY day
       ORDER BY day DESC;
@@ -254,7 +254,7 @@ _cmd_sessions() {
       SUBSTR(COALESCE(started_at,''),1,16) AS started,
       SUBSTR(COALESCE(project,'?'),1,20) AS proj,
       SUBSTR(COALESCE(model,'?'),1,12) AS model,
-      PRINTF('\$%.4f', COALESCE(total_cost_usd,0)) AS cost,
+      PRINTF('\$%.4f', COALESCE((SELECT SUM(cost_usd) FROM agent_runs ar WHERE ar.session_id = sessions.id),0)) AS cost,
       COALESCE(ended_at,'active') AS status
     FROM sessions
     ${where_clause}
