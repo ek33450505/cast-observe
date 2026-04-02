@@ -57,12 +57,15 @@ except Exception:
     sys.exit(0)
 
 result = {
-    "agent_name": data.get("agent_name") or data.get("subagent_name") or "unknown",
+    # SubagentStop stdin uses 'agent_type' (not 'agent_name') per Claude Code source.
+    # 'agent_name' and 'subagent_name' are not sent by Claude Code; 'agent_type' is
+    # the correct field (from createBaseHookInput + SubagentStop payload).
+    "agent_name": data.get("agent_type") or data.get("agent_name") or data.get("subagent_name") or "unknown",
     "session_id": data.get("session_id") or "",
     "stop_reason": data.get("stop_reason") or "",
-    "output_preview": (data.get("output") or "")[:200],
-    "has_turn_ceiling": "[TURN CEILING]" in (data.get("output") or ""),
-    "output_full": data.get("output") or "",
+    "output_preview": (data.get("last_assistant_message") or data.get("output") or "")[:200],
+    "has_turn_ceiling": "[TURN CEILING]" in (data.get("last_assistant_message") or data.get("output") or ""),
+    "output_full": data.get("last_assistant_message") or data.get("output") or "",
     "agent_id": data.get("agent_id") or data.get("subagent_id") or "",
 }
 print(json.dumps(result))
