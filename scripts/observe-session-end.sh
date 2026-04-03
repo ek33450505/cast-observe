@@ -22,17 +22,17 @@ set +e
 mkdir -p "${HOME}/.claude/logs" 2>/dev/null || true
 _log_error() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] ERROR $0: $1" >> "${HOME}/.claude/logs/hook-errors.log" 2>/dev/null || true; }
 
-CO_DIR="${HOME}/.claude/observe"
+CAST_DIR="${HOME}/.claude/cast"
 SESSION_ID="${CLAUDE_SESSION_ID:-default}"
 
 # === HOOK HEALTH MARKER ===
-mkdir -p "${CO_DIR}/hook-last-fired" && touch "${CO_DIR}/hook-last-fired/Stop.timestamp" "${CO_DIR}/hook-last-fired/SessionEnd.timestamp"
+mkdir -p "${CAST_DIR}/hook-last-fired" && touch "${CAST_DIR}/hook-last-fired/Stop.timestamp" "${CAST_DIR}/hook-last-fired/SessionEnd.timestamp"
 
 # === BLOCKED COUNT ESCALATION ===
-BLOCKED_LOG="${CO_DIR}/blocked-count.txt"
+BLOCKED_LOG="${CAST_DIR}/blocked-count.txt"
 BLOCKED_COUNT=$(cat "$BLOCKED_LOG" 2>/dev/null || echo 0)
 if [ "${BLOCKED_COUNT}" -ge 2 ] 2>/dev/null; then
-  echo "[CAST-ESCALATE] WARNING: ${BLOCKED_COUNT} consecutive BLOCKED responses detected. Human intervention may be required. Check ${CO_DIR}/events/ for details." >&2
+  echo "[CAST-ESCALATE] WARNING: ${BLOCKED_COUNT} consecutive BLOCKED responses detected. Human intervention may be required. Check ${CAST_DIR}/events/ for details." >&2
   rm -f "$BLOCKED_LOG"
 fi
 

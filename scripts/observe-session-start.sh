@@ -20,18 +20,18 @@ set -euo pipefail
 # _log_error: append a structured error line to hook-errors.log (never fails itself)
 _log_error() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] ERROR $0: $1" >> "${HOME}/.claude/logs/hook-errors.log" 2>/dev/null || true; }
 mkdir -p "${HOME}/.claude/logs" 2>/dev/null || true
-mkdir -p "${HOME}/.claude/observe" 2>/dev/null || true
+mkdir -p "${HOME}/.claude/cast" 2>/dev/null || true
 
-CO_DIR="${HOME}/.claude/observe"
+CAST_DIR="${HOME}/.claude/cast"
 DB_PATH="${CAST_DB_PATH:-${HOME}/.claude/cast.db}"
 
 INPUT="$(cat 2>/dev/null || true)"
 
-CO_INPUT="$INPUT" python3 - <<'PYEOF' || _log_error "session-start JSONL block failed (exit $?)"
+CAST_INPUT="$INPUT" python3 - <<'PYEOF' || _log_error "session-start JSONL block failed (exit $?)"
 import json, os
 from datetime import datetime, timezone
 
-raw = os.environ.get("CO_INPUT", "")
+raw = os.environ.get("CAST_INPUT", "")
 try:
     data = json.loads(raw)
 except Exception:
@@ -51,9 +51,9 @@ if env_file:
         if parent:
             os.makedirs(parent, exist_ok=True)
         with open(env_file, "a") as f:
-            f.write(f"CO_SESSION_ID={session_id}\n")
-            f.write(f"CO_SESSION_CWD={cwd}\n")
-            f.write(f"CO_SESSION_START_TS={iso_ts}\n")
+            f.write(f"CAST_SESSION_ID={session_id}\n")
+            f.write(f"CAST_SESSION_CWD={cwd}\n")
+            f.write(f"CAST_SESSION_START_TS={iso_ts}\n")
     except Exception as e:
         import os as _os
         from datetime import datetime, timezone
@@ -70,7 +70,7 @@ entry = {
     "cwd":        cwd,
 }
 
-log_path = os.path.expanduser("~/.claude/observe/session-starts.jsonl")
+log_path = os.path.expanduser("~/.claude/cast/session-starts.jsonl")
 os.makedirs(os.path.dirname(log_path), exist_ok=True)
 try:
     with open(log_path, "a") as f:
@@ -85,11 +85,11 @@ except Exception as e:
         lf.write(f"[{ts}] ERROR observe-session-start.sh: session-starts.jsonl write failed: {e}\n")
 PYEOF
 
-CO_INPUT="$INPUT" DB_PATH_VAL="$DB_PATH" python3 - <<'PYEOF2' || _log_error "session-start DB block failed (exit $?)"
+CAST_INPUT="$INPUT" DB_PATH_VAL="$DB_PATH" python3 - <<'PYEOF2' || _log_error "session-start DB block failed (exit $?)"
 import json, os, sqlite3 as _sqlite3
 from datetime import datetime, timezone
 
-raw = os.environ.get("CO_INPUT", "")
+raw = os.environ.get("CAST_INPUT", "")
 try:
     data = json.loads(raw)
 except Exception:

@@ -76,7 +76,7 @@ def db_execute(sql: str, params: tuple = ()) -> None:
 
 def _log_error(msg: str) -> None:
     try:
-        log_path = Path.home() / '.claude' / 'logs' / 'observe-errors.log'
+        log_path = Path.home() / '.claude' / 'logs' / 'db-write-errors.log'
         log_path.parent.mkdir(parents=True, exist_ok=True)
         ts = datetime.datetime.utcnow().isoformat() + 'Z'
         with open(log_path, 'a') as f:

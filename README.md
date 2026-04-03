@@ -2,7 +2,7 @@
 
 Session-level cost tracking and agent run history for Claude Code, with no framework required.
 
-![version](https://img.shields.io/badge/version-0.1.0-blue)
+![version](https://img.shields.io/badge/version-0.2.0-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 
@@ -12,6 +12,7 @@ Session-level cost tracking and agent run history for Claude Code, with no frame
 - Agent run history (which agents ran, how long, what it cost)
 - Daily and weekly cost summaries with per-agent breakdown
 - Budget alerts when you approach or hit a daily limit
+- Live TUI dashboard (`cast-observe dash`) — htop for Claude Code
 - Direct SQLite access — no server, no cloud, no telemetry
 
 ## Install
@@ -79,6 +80,9 @@ cast-observe budget --project my-project
 cast-observe db path
 cast-observe db query "SELECT COUNT(*) FROM agent_runs WHERE status='BLOCKED'"
 cast-observe db size
+
+# Launch the live TUI dashboard (requires textual — installed by 'cast-observe install')
+cast-observe dash
 ```
 
 ## How it works
@@ -86,11 +90,12 @@ cast-observe db size
 | Hook | Script | What it records |
 |---|---|---|
 | SessionStart | observe-session-start.sh | Session ID, working directory, timestamp |
-| Stop | observe-session-end.sh | DB pruning, blocked-count escalation |
-| SessionEnd | observe-session-end.sh | Same as Stop |
-| SubagentStart | observe-subagent-start.sh | Agent name, session ID, event file |
+| SessionEnd | observe-session-end.sh | DB pruning, blocked-count escalation, temp file cleanup |
+| SubagentStart | observe-subagent-start.sh | Agent name (via agent_type), session ID, event file |
 | SubagentStop | observe-subagent-stop.sh | Agent status, cost, turn ceiling events |
 | PostToolUse | observe-cost-tracker.sh | Token counts, cost in USD, model |
+| PostToolUseFailure | observe-cost-tracker.sh | Tool failure tracking |
+| PreCompact / PostCompact | observe-session-end/start.sh | Compact lifecycle hooks |
 | PostToolUse | observe-budget-alert.sh | Budget threshold checks |
 
 All hooks run with `async: true` so they never block Claude Code.

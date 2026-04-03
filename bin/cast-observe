@@ -3,7 +3,7 @@
 #
 # Usage: cast-observe <subcommand> [args]
 #
-# Subcommands: status, budget, sessions, db, install
+# Subcommands: status, budget, sessions, db, dash, install
 #
 # DB: $CAST_DB_PATH or ~/.claude/cast.db
 
@@ -322,6 +322,35 @@ USAGE
   esac
 }
 
+# ── Subcommand: dash ─────────────────────────────────────────────────────────
+_cmd_dash() {
+  # Locate cast-dash.py
+  local dash_script=""
+  if [ -f "${HOME}/.claude/scripts/cast-dash.py" ]; then
+    dash_script="${HOME}/.claude/scripts/cast-dash.py"
+  elif [ -f "${CO_REPO_DIR}/scripts/cast-dash.py" ]; then
+    dash_script="${CO_REPO_DIR}/scripts/cast-dash.py"
+  else
+    _error "cast-dash.py not found. Run 'cast-observe install' first."
+    exit 1
+  fi
+
+  # Prefer venv python
+  local python_bin="python3"
+  if [ -f "${HOME}/.claude/venv/bin/python3" ]; then
+    python_bin="${HOME}/.claude/venv/bin/python3"
+  fi
+
+  # Check textual is importable
+  if ! "$python_bin" -c "import textual" 2>/dev/null; then
+    _error "textual not installed. Run 'cast-observe install' to set up the venv."
+    printf "  Or manually: pip install textual\n" >&2
+    exit 1
+  fi
+
+  exec "$python_bin" "$dash_script" "$@"
+}
+
 # ── Subcommand: install ───────────────────────────────────────────────────────
 _cmd_install() {
   printf "\n"
@@ -342,19 +371,32 @@ _cmd_install() {
   # Step 1: Create directories
   mkdir -p "${HOME}/.claude/scripts" \
            "${HOME}/.claude/config" \
-           "${HOME}/.claude/observe" \
+           "${HOME}/.claude/cast" \
            "${HOME}/.claude/logs"
   _success "  Directories created"
 
   # Step 2: Copy scripts
   local copied=0
-  for f in "${src_dir}"/observe-*.sh "${src_dir}"/observe_db.py; do
+  for f in "${src_dir}"/observe-*.sh "${src_dir}"/observe_db.py "${src_dir}"/cast-dash.py "${src_dir}"/cast-stats.sh; do
     [ -f "$f" ] || continue
     cp "$f" "${HOME}/.claude/scripts/"
     chmod +x "${HOME}/.claude/scripts/$(basename "$f")" 2>/dev/null || true
     copied=$((copied + 1))
   done
   _success "  Scripts installed: ${copied} files → ~/.claude/scripts/"
+
+  # Step 2b: Set up venv and install textual for cast-dash
+  local venv_dir="${HOME}/.claude/venv"
+  if [ ! -d "$venv_dir" ]; then
+    if python3 -m venv "$venv_dir" 2>/dev/null; then
+      _success "  Python venv created at $venv_dir"
+    else
+      _warn "  Could not create venv — cast-observe dash may require manual textual install"
+    fi
+  fi
+  if [ -f "${venv_dir}/bin/pip" ]; then
+    "${venv_dir}/bin/pip" install --quiet textual 2>/dev/null && _success "  textual installed in venv" || _warn "  textual install failed — run: ${venv_dir}/bin/pip install textual"
+  fi
 
   # Step 3: Copy model-pricing.json
   local pricing_src="${OBSERVE_SCRIPTS_DIR:-${CO_REPO_DIR}}/config/model-pricing.json"
@@ -444,6 +486,7 @@ Subcommands:
   ${C_BOLD}budget${C_RESET}   [--week] [--project <n>] Cost summary: tokens, cost, per-agent breakdown
   ${C_BOLD}sessions${C_RESET} [--project <n>] [--limit N] List recent sessions
   ${C_BOLD}db${C_RESET}       path|query|size            DB inspection utilities
+  ${C_BOLD}dash${C_RESET}                               Launch Textual TUI dashboard (htop for Claude Code)
   ${C_BOLD}install${C_RESET}                            Post-install setup: copy scripts, init DB, merge settings
 
 Global flags:
@@ -471,6 +514,10 @@ case "${1:-}" in
   db)
     shift
     _cmd_db "$@"
+    ;;
+  dash)
+    shift
+    _cmd_dash "$@"
     ;;
   install)
     shift

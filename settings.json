@@ -2,6 +2,7 @@
   "hooks": {
     "SessionStart": [
       {
+        "id": "observe-session-start",
         "hooks": [
           {
             "type": "command",
@@ -11,20 +12,9 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/scripts/observe-session-end.sh",
-            "timeout": 15,
-            "async": true
-          }
-        ]
-      }
-    ],
     "SessionEnd": [
       {
+        "id": "observe-session-end",
         "hooks": [
           {
             "type": "command",
@@ -37,6 +27,7 @@
     ],
     "SubagentStart": [
       {
+        "id": "observe-subagent-start",
         "hooks": [
           {
             "type": "command",
@@ -49,6 +40,7 @@
     ],
     "SubagentStop": [
       {
+        "id": "observe-subagent-stop",
         "hooks": [
           {
             "type": "command",
@@ -61,6 +53,7 @@
     ],
     "PostToolUse": [
       {
+        "id": "observe-cost-tracker",
         "hooks": [
           {
             "type": "command",
@@ -71,11 +64,51 @@
         ]
       },
       {
+        "id": "observe-budget-alert",
         "hooks": [
           {
             "type": "command",
             "command": "bash ~/.claude/scripts/observe-budget-alert.sh",
             "timeout": 3,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "id": "observe-tool-failure",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/observe-cost-tracker.sh",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "id": "observe-pre-compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/observe-session-end.sh",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "id": "observe-post-compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/observe-session-start.sh",
+            "timeout": 5,
             "async": true
           }
         ]

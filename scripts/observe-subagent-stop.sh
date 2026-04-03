@@ -21,9 +21,9 @@
 # Never fail loudly — a broken hook must not interrupt the parent session.
 set +e
 
-CO_DIR="${HOME}/.claude/observe"
-EVENTS_DIR="${CO_DIR}/events"
-TURN_CEILING_DIR="${CO_DIR}/turn-ceiling-events"
+CAST_DIR="${HOME}/.claude/cast"
+EVENTS_DIR="${CAST_DIR}/events"
+TURN_CEILING_DIR="${CAST_DIR}/turn-ceiling-events"
 DB_PATH="${CAST_DB_PATH:-${HOME}/.claude/cast.db}"
 STOP_ERROR_LOG="${HOME}/.claude/logs/subagent-stop-errors.log"
 mkdir -p "${HOME}/.claude/logs" 2>/dev/null || true
@@ -40,12 +40,12 @@ if [ -z "$INPUT" ]; then
 fi
 
 # Parse fields from JSON input via env var (never interpolate into Python source)
-export CO_STOP_INPUT="$INPUT"
+export CAST_STOP_INPUT="$INPUT"
 
 PARSED="$(python3 - <<'PYEOF' 2>/dev/null
 import sys, json, os
 
-raw = os.environ.get('CO_STOP_INPUT', '')
+raw = os.environ.get('CAST_STOP_INPUT', '')
 if not raw:
     print(json.dumps({"error": "no input"}))
     sys.exit(0)
@@ -79,14 +79,14 @@ else
 fi
 
 # Extract individual fields via env var
-export CO_STOP_PARSED="$PARSED"
+export CAST_STOP_PARSED="$PARSED"
 
-AGENT_NAME="$(python3 -c "import json,os; d=json.loads(os.environ.get('CO_STOP_PARSED','{}')); print(d.get('agent_name','unknown'))" 2>/dev/null || echo "unknown")"
-SESSION_ID="$(python3 -c "import json,os; d=json.loads(os.environ.get('CO_STOP_PARSED','{}')); print(d.get('session_id',''))" 2>/dev/null || echo "")"
-STOP_REASON="$(python3 -c "import json,os; d=json.loads(os.environ.get('CO_STOP_PARSED','{}')); print(d.get('stop_reason',''))" 2>/dev/null || echo "")"
-HAS_TURN_CEILING="$(python3 -c "import json,os; d=json.loads(os.environ.get('CO_STOP_PARSED','{}')); print('1' if d.get('has_turn_ceiling') else '0')" 2>/dev/null || echo "0")"
-AGENT_ID="$(python3 -c "import json,os; d=json.loads(os.environ.get('CO_STOP_PARSED','{}')); print(d.get('agent_id',''))" 2>/dev/null || echo "")"
-export CO_STOP_AGENT_ID="$AGENT_ID"
+AGENT_NAME="$(python3 -c "import json,os; d=json.loads(os.environ.get('CAST_STOP_PARSED','{}')); print(d.get('agent_name','unknown'))" 2>/dev/null || echo "unknown")"
+SESSION_ID="$(python3 -c "import json,os; d=json.loads(os.environ.get('CAST_STOP_PARSED','{}')); print(d.get('session_id',''))" 2>/dev/null || echo "")"
+STOP_REASON="$(python3 -c "import json,os; d=json.loads(os.environ.get('CAST_STOP_PARSED','{}')); print(d.get('stop_reason',''))" 2>/dev/null || echo "")"
+HAS_TURN_CEILING="$(python3 -c "import json,os; d=json.loads(os.environ.get('CAST_STOP_PARSED','{}')); print('1' if d.get('has_turn_ceiling') else '0')" 2>/dev/null || echo "0")"
+AGENT_ID="$(python3 -c "import json,os; d=json.loads(os.environ.get('CAST_STOP_PARSED','{}')); print(d.get('agent_id',''))" 2>/dev/null || echo "")"
+export CAST_STOP_AGENT_ID="$AGENT_ID"
 
 # Determine event type: blocked if [TURN CEILING] or stop_reason indicates error
 EVENT_TYPE="task_completed"
@@ -102,27 +102,27 @@ TIMESTAMP_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || python3 -c "from dat
 SAFE_AGENT="${AGENT_NAME//[^a-zA-Z0-9_-]/}"
 EVENT_FILE="${EVENTS_DIR}/${TIMESTAMP}-${SAFE_AGENT}-subagent-stop.json"
 
-export CO_STOP_EVENT_TYPE="$EVENT_TYPE"
-export CO_STOP_AGENT="$AGENT_NAME"
-export CO_STOP_SESSION="$SESSION_ID"
-export CO_STOP_REASON="$STOP_REASON"
-export CO_STOP_TS_ISO="$TIMESTAMP_ISO"
-export CO_STOP_EVENT_FILE="$EVENT_FILE"
+export CAST_STOP_EVENT_TYPE="$EVENT_TYPE"
+export CAST_STOP_AGENT="$AGENT_NAME"
+export CAST_STOP_SESSION="$SESSION_ID"
+export CAST_STOP_REASON="$STOP_REASON"
+export CAST_STOP_TS_ISO="$TIMESTAMP_ISO"
+export CAST_STOP_EVENT_FILE="$EVENT_FILE"
 
 python3 - <<'PYEOF' 2>/dev/null || true
 import json, os
 
 event = {
-    "event_id":    os.environ.get('CO_STOP_AGENT','unknown') + '-subagent-stop-' + os.environ.get('CO_STOP_TS_ISO',''),
-    "timestamp":   os.environ.get('CO_STOP_TS_ISO',''),
-    "event_type":  os.environ.get('CO_STOP_EVENT_TYPE','task_completed'),
-    "agent":       os.environ.get('CO_STOP_AGENT','unknown'),
-    "session_id":  os.environ.get('CO_STOP_SESSION',''),
-    "stop_reason": os.environ.get('CO_STOP_REASON',''),
+    "event_id":    os.environ.get('CAST_STOP_AGENT','unknown') + '-subagent-stop-' + os.environ.get('CAST_STOP_TS_ISO',''),
+    "timestamp":   os.environ.get('CAST_STOP_TS_ISO',''),
+    "event_type":  os.environ.get('CAST_STOP_EVENT_TYPE','task_completed'),
+    "agent":       os.environ.get('CAST_STOP_AGENT','unknown'),
+    "session_id":  os.environ.get('CAST_STOP_SESSION',''),
+    "stop_reason": os.environ.get('CAST_STOP_REASON',''),
     "source":      "SubagentStop",
 }
 
-filepath = os.environ.get('CO_STOP_EVENT_FILE','')
+filepath = os.environ.get('CAST_STOP_EVENT_FILE','')
 if filepath:
     with open(filepath, 'w') as f:
         json.dump(event, f, indent=2)
@@ -134,15 +134,15 @@ if command -v sqlite3 >/dev/null 2>&1 && [ -f "$DB_PATH" ] && [ -s "$DB_PATH" ];
   if [ "$EVENT_TYPE" = "task_blocked" ]; then
     DB_STATUS="BLOCKED"
   fi
-  export CO_STOP_DB_STATUS="$DB_STATUS"
+  export CAST_STOP_DB_STATUS="$DB_STATUS"
   python3 - <<'PYEOF' 2>>"$STOP_ERROR_LOG" || true
 import sqlite3, os, time
 
 db    = os.path.expanduser(os.environ.get('CAST_DB_PATH', '~/.claude/cast.db'))
-agent = os.environ.get('CO_STOP_AGENT', '')
-sess  = os.environ.get('CO_STOP_SESSION', '')
-ts    = os.environ.get('CO_STOP_TS_ISO', '')
-st    = os.environ.get('CO_STOP_DB_STATUS', 'DONE')
+agent = os.environ.get('CAST_STOP_AGENT', '')
+sess  = os.environ.get('CAST_STOP_SESSION', '')
+ts    = os.environ.get('CAST_STOP_TS_ISO', '')
+st    = os.environ.get('CAST_STOP_DB_STATUS', 'DONE')
 err_log = os.path.expanduser('~/.claude/logs/hook-errors.log')
 
 if not agent or not db:
@@ -157,7 +157,7 @@ def _log_hook_error(msg):
     except Exception:
         pass
 
-agent_id = os.environ.get('CO_STOP_AGENT_ID', '')
+agent_id = os.environ.get('CAST_STOP_AGENT_ID', '')
 
 # Retry up to 3 times with backoff on SQLITE_BUSY / locked
 for attempt in range(3):
@@ -174,7 +174,7 @@ for attempt in range(3):
             cur.execute(
                 "UPDATE agent_runs SET status=?, ended_at=? "
                 "WHERE status='running' AND agent=? AND session_id=? "
-                "AND id=(SELECT MAX(id) FROM agent_runs WHERE status='running' AND agent=? AND session_id=?)",
+                "AND id=(SELECT MIN(id) FROM agent_runs WHERE status='running' AND agent=? AND session_id=?)",
                 (st, ts, agent, sess, agent, sess),
             )
         conn.commit()
@@ -201,27 +201,27 @@ if [ "$HAS_TURN_CEILING" = "1" ]; then
   mkdir -p "$TURN_CEILING_DIR" 2>/dev/null || true
   CEIL_FILE="${TURN_CEILING_DIR}/${TIMESTAMP}-${SAFE_AGENT}.json"
 
-  export CO_CEIL_FILE="$CEIL_FILE"
+  export CAST_CEIL_FILE="$CEIL_FILE"
   python3 - <<'PYEOF' 2>/dev/null || true
 import json, os
 
-raw = os.environ.get('CO_STOP_PARSED', '{}')
+raw = os.environ.get('CAST_STOP_PARSED', '{}')
 try:
     parsed = json.loads(raw)
 except Exception:
     parsed = {}
 
 checkpoint = {
-    "timestamp":    os.environ.get('CO_STOP_TS_ISO', ''),
-    "agent":        os.environ.get('CO_STOP_AGENT', 'unknown'),
-    "session_id":   os.environ.get('CO_STOP_SESSION', ''),
-    "stop_reason":  os.environ.get('CO_STOP_REASON', ''),
+    "timestamp":    os.environ.get('CAST_STOP_TS_ISO', ''),
+    "agent":        os.environ.get('CAST_STOP_AGENT', 'unknown'),
+    "session_id":   os.environ.get('CAST_STOP_SESSION', ''),
+    "stop_reason":  os.environ.get('CAST_STOP_REASON', ''),
     "event":        "turn_ceiling_hit",
     "output_preview": parsed.get("output_preview", ""),
     "resume_hint":  "Re-invoke the agent with --resume or dispatch orchestrator to continue from last checkpoint.",
 }
 
-filepath = os.environ.get('CO_CEIL_FILE', '')
+filepath = os.environ.get('CAST_CEIL_FILE', '')
 if filepath:
     with open(filepath, 'w') as f:
         json.dump(checkpoint, f, indent=2)

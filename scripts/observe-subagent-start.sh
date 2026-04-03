@@ -20,12 +20,12 @@
 # Never fail loudly — a broken hook must not interrupt the parent session.
 set +e
 
-CO_DIR="${HOME}/.claude/observe"
-EVENTS_DIR="${CO_DIR}/events"
+CAST_DIR="${HOME}/.claude/cast"
+EVENTS_DIR="${CAST_DIR}/events"
 DB_PATH="${CAST_DB_PATH:-${HOME}/.claude/cast.db}"
 START_ERROR_LOG="${HOME}/.claude/logs/subagent-start-errors.log"
 mkdir -p "${HOME}/.claude/logs" 2>/dev/null || true
-mkdir -p "${CO_DIR}/events" 2>/dev/null || true
+mkdir -p "$EVENTS_DIR" 2>/dev/null || true
 
 # _log_error: append a structured error line to hook-errors.log (never fails itself)
 _log_error() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] ERROR $0: $1" >> "${HOME}/.claude/logs/hook-errors.log" 2>/dev/null || true; }
@@ -37,12 +37,12 @@ if [ -z "$INPUT" ]; then
 fi
 
 # Parse fields via env var (never interpolate into Python source)
-export CO_START_INPUT="$INPUT"
+export CAST_START_INPUT="$INPUT"
 
 PARSED="$(python3 - <<'PYEOF' 2>/dev/null
 import sys, json, os
 
-raw = os.environ.get('CO_START_INPUT', '')
+raw = os.environ.get('CAST_START_INPUT', '')
 if not raw:
     print(json.dumps({"error": "no input"}))
     sys.exit(0)
@@ -54,7 +54,7 @@ except Exception:
     sys.exit(0)
 
 result = {
-    "agent_name": data.get("agent_name") or data.get("subagent_name") or "unknown",
+    "agent_name": data.get("agent_type") or data.get("agent_name") or data.get("subagent_name") or "unknown",
     "session_id": data.get("session_id") or "",
     "agent_id":   data.get("agent_id") or data.get("subagent_id") or "",
 }
@@ -67,12 +67,12 @@ if [ -z "$PARSED" ]; then
 fi
 
 # Extract fields
-export CO_START_PARSED="$PARSED"
+export CAST_START_PARSED="$PARSED"
 
-AGENT_NAME="$(python3 -c "import json,os; d=json.loads(os.environ.get('CO_START_PARSED','{}')); print(d.get('agent_name','unknown'))" 2>/dev/null || echo "unknown")"
-SESSION_ID="$(python3 -c "import json,os; d=json.loads(os.environ.get('CO_START_PARSED','{}')); print(d.get('session_id',''))" 2>/dev/null || echo "")"
-AGENT_ID="$(python3 -c "import json,os; d=json.loads(os.environ.get('CO_START_PARSED','{}')); print(d.get('agent_id',''))" 2>/dev/null || echo "")"
-export CO_START_AGENT_ID="$AGENT_ID"
+AGENT_NAME="$(python3 -c "import json,os; d=json.loads(os.environ.get('CAST_START_PARSED','{}')); print(d.get('agent_name','unknown'))" 2>/dev/null || echo "unknown")"
+SESSION_ID="$(python3 -c "import json,os; d=json.loads(os.environ.get('CAST_START_PARSED','{}')); print(d.get('session_id',''))" 2>/dev/null || echo "")"
+AGENT_ID="$(python3 -c "import json,os; d=json.loads(os.environ.get('CAST_START_PARSED','{}')); print(d.get('agent_id',''))" 2>/dev/null || echo "")"
+export CAST_START_AGENT_ID="$AGENT_ID"
 
 # ── Step 1: Write task_claimed event to ~/.claude/observe/events/ ─────────────
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))")"
@@ -80,24 +80,24 @@ TIMESTAMP_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || python3 -c "from dat
 SAFE_AGENT="${AGENT_NAME//[^a-zA-Z0-9_-]/}"
 EVENT_FILE="${EVENTS_DIR}/${TIMESTAMP}-${SAFE_AGENT}-subagent-start.json"
 
-export CO_START_AGENT="$AGENT_NAME"
-export CO_START_SESSION="$SESSION_ID"
-export CO_START_TS_ISO="$TIMESTAMP_ISO"
-export CO_START_EVENT_FILE="$EVENT_FILE"
+export CAST_START_AGENT="$AGENT_NAME"
+export CAST_START_SESSION="$SESSION_ID"
+export CAST_START_TS_ISO="$TIMESTAMP_ISO"
+export CAST_START_EVENT_FILE="$EVENT_FILE"
 
 python3 - <<'PYEOF' 2>/dev/null || true
 import json, os
 
 event = {
-    "event_id":   os.environ.get('CO_START_AGENT', 'unknown') + '-subagent-start-' + os.environ.get('CO_START_TS_ISO', ''),
-    "timestamp":  os.environ.get('CO_START_TS_ISO', ''),
+    "event_id":   os.environ.get('CAST_START_AGENT', 'unknown') + '-subagent-start-' + os.environ.get('CAST_START_TS_ISO', ''),
+    "timestamp":  os.environ.get('CAST_START_TS_ISO', ''),
     "event_type": "task_claimed",
-    "agent":      os.environ.get('CO_START_AGENT', 'unknown'),
-    "session_id": os.environ.get('CO_START_SESSION', ''),
+    "agent":      os.environ.get('CAST_START_AGENT', 'unknown'),
+    "session_id": os.environ.get('CAST_START_SESSION', ''),
     "source":     "SubagentStart",
 }
 
-filepath = os.environ.get('CO_START_EVENT_FILE', '')
+filepath = os.environ.get('CAST_START_EVENT_FILE', '')
 if filepath:
     with open(filepath, 'w') as f:
         json.dump(event, f, indent=2)
@@ -105,15 +105,15 @@ PYEOF
 
 # ── Step 2: Insert running row into cast.db agent_runs ───────────────────────
 if command -v sqlite3 >/dev/null 2>&1 && [ -f "$DB_PATH" ] && [ -s "$DB_PATH" ]; then
-  export CO_START_DB_PATH="$DB_PATH"
+  export CAST_START_DB_PATH="$DB_PATH"
   python3 - <<'PYEOF' 2>>"$START_ERROR_LOG" || true
 import sqlite3, os, time
 
-db       = os.path.expanduser(os.environ.get('CO_START_DB_PATH', '~/.claude/cast.db'))
-agent    = os.environ.get('CO_START_AGENT', '')
-sess     = os.environ.get('CO_START_SESSION', '')
-ts       = os.environ.get('CO_START_TS_ISO', '')
-agent_id = os.environ.get('CO_START_AGENT_ID', '')
+db       = os.path.expanduser(os.environ.get('CAST_START_DB_PATH', '~/.claude/cast.db'))
+agent    = os.environ.get('CAST_START_AGENT', '')
+sess     = os.environ.get('CAST_START_SESSION', '')
+ts       = os.environ.get('CAST_START_TS_ISO', '')
+agent_id = os.environ.get('CAST_START_AGENT_ID', '')
 err_log  = os.path.expanduser('~/.claude/logs/hook-errors.log')
 
 if not agent:
