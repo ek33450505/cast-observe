@@ -129,6 +129,10 @@ cast-observe uses the same `~/.claude/cast.db` path as the CAST multi-agent fram
 - python3
 - sqlite3
 
+## Part of CAST
+
+cast-observe is the observability primitive layer used by the [CAST framework](https://github.com/ek33450505/claude-agent-team). It ships standalone for Claude Code users who want session cost tracking and agent run history without the full CAST orchestration and multi-agent framework.
+
 ## CAST Ecosystem
 
 Each CAST component ships as a standalone Homebrew package. Mix and match to build your own stack.
