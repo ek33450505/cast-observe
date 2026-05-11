@@ -133,19 +133,24 @@ cast-observe uses the same `~/.claude/cast.db` path as the CAST multi-agent fram
 
 cast-observe is the observability primitive layer used by the [CAST framework](https://github.com/ek33450505/claude-agent-team). It ships standalone for Claude Code users who want session cost tracking and agent run history without the full CAST orchestration and multi-agent framework.
 
-## CAST Ecosystem
+## The CAST Ecosystem
 
-Each CAST component ships as a standalone Homebrew package. Mix and match to build your own stack.
+CAST is distributed as a constellation of independently-installable packages — pick what you need. All are MIT-licensed and Homebrew-tappable.
 
-| Package | What It Does | Install |
-|---------|-------------|---------|
-| [cast-agents](https://github.com/ek33450505/cast-agents) | 22 specialist Claude Code agents | `brew tap ek33450505/cast-agents && brew install cast-agents` |
-| [cast-hooks](https://github.com/ek33450505/cast-hooks) | 13 hook scripts — observability, safety gates, dispatch | `brew tap ek33450505/cast-hooks && brew install cast-hooks` |
-| **cast-observe** | Session cost + token spend tracking | `brew tap ek33450505/cast-observe && brew install cast-observe` |
-| [cast-security](https://github.com/ek33450505/cast-security) | Policy gates, PII redaction, audit trail | `brew tap ek33450505/cast-security && brew install cast-security` |
-| [cast-dash](https://github.com/ek33450505/cast-dash) | Terminal UI dashboard (Python + Textual) | `brew tap ek33450505/cast-dash && brew install cast-dash` |
-| [cast-memory](https://github.com/ek33450505/cast-memory) | Persistent memory for Claude Code agents | `brew tap ek33450505/cast-memory && brew install cast-memory` |
-| [cast-parallel](https://github.com/ek33450505/cast-parallel) | Parallel plan execution across dual worktrees | `brew tap ek33450505/cast-parallel && brew install cast-parallel` |
+| Repo | One line |
+|---|---|
+| [claude-agent-team](https://github.com/ek33450505/claude-agent-team) | The full CAST framework — agents, hooks, routines, observability |
+| [cast-agents](https://github.com/ek33450505/cast-agents) | 22 specialist agents (commit, debug, review, plan, test, research, …) |
+| [cast-hooks](https://github.com/ek33450505/cast-hooks) | 13 hook scripts — observability, safety gates, dispatch |
+| [cast-memory](https://github.com/ek33450505/cast-memory) | Persistent agent memory with FTS5 search + MCP server |
+| [cast-observe](https://github.com/ek33450505/cast-observe) | Session cost + token-spend tracking ← **you are here** |
+| [cast-security](https://github.com/ek33450505/cast-security) | Policy gates, PII redaction, audit trail |
+| [cast-dash](https://github.com/ek33450505/cast-dash) | Terminal UI dashboard (Python + Textual) |
+| [cast-parallel](https://github.com/ek33450505/cast-parallel) | Plan execution split across parallel git worktrees |
+| [cast-claudes_journal](https://github.com/ek33450505/cast-claudes_journal) | Cross-session continuity via Obsidian vault |
+| [cast-routines](https://github.com/ek33450505/cast-routines) | Scheduled Claude Code routines via YAML + cron |
+| [cast-time](https://github.com/ek33450505/cast-time) | SessionStart hook injecting local time + timezone |
+| [cast-doctor](https://github.com/ek33450505/cast-doctor) | Read-only health check for any Claude Code install |
 
 ## License
 
