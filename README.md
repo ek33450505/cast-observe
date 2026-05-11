@@ -39,7 +39,7 @@ bash install.sh
 ```
 $ cast-observe status
 
-cast-observe v0.1.0 — Status
+cast-observe v0.2.0 — Status
 ════════════════════════════════════
   DB:              ~/.claude/cast.db (48K)
   Sessions today:  3
@@ -139,7 +139,7 @@ Each CAST component ships as a standalone Homebrew package. Mix and match to bui
 
 | Package | What It Does | Install |
 |---------|-------------|---------|
-| [cast-agents](https://github.com/ek33450505/cast-agents) | 17 specialist Claude Code agents | `brew tap ek33450505/cast-agents && brew install cast-agents` |
+| [cast-agents](https://github.com/ek33450505/cast-agents) | 22 specialist Claude Code agents | `brew tap ek33450505/cast-agents && brew install cast-agents` |
 | [cast-hooks](https://github.com/ek33450505/cast-hooks) | 13 hook scripts — observability, safety gates, dispatch | `brew tap ek33450505/cast-hooks && brew install cast-hooks` |
 | **cast-observe** | Session cost + token spend tracking | `brew tap ek33450505/cast-observe && brew install cast-observe` |
 | [cast-security](https://github.com/ek33450505/cast-security) | Policy gates, PII redaction, audit trail | `brew tap ek33450505/cast-security && brew install cast-security` |
