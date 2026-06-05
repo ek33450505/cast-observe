@@ -1,0 +1,23 @@
+name: CAST Stats Drift Check
+
+# Gates the README's CAST ecosystem stat sentinels against the flagship
+# canonical cast-stats.json. Goes green once the flagship publishes it to main
+# (already live). The monthly cast-ecosystem-doctor also covers this repo.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ek33450505/claude-agent-team/.github/actions/cast-stats-drift-check@main
+        with:
+          sentinels: README.md
