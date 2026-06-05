@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   model           TEXT,                            -- model used
   started_at      TEXT,
   ended_at        TEXT,
-  status          TEXT CHECK (status IN ('DONE','DONE_WITH_CONCERNS','BLOCKED','NEEDS_CONTEXT','running','failed')),
+  status          TEXT,                            -- no CHECK: flagship dropped it (Phase 3) to allow abandoned/fallback/unknown
   input_tokens    INTEGER,
   output_tokens   INTEGER,
   cost_usd        REAL,

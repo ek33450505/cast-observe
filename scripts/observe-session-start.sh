@@ -4,7 +4,7 @@
 # Responsibilities:
 #   1. Guard against subprocess invocations
 #   2. Write cast-observe env vars to $CLAUDE_ENV_FILE if set
-#   3. Log session start to ~/.claude/observe/session-starts.jsonl
+#   3. Log session start to ~/.claude/cast/session-starts.jsonl
 #
 # Stdin JSON fields (SessionStart):
 #   session_id — the new session's ID

@@ -25,7 +25,7 @@ Installed to PATH. Auto-invoked via hook chain during sessions. Can be run manua
 - **Hook events** — All events emitted must use `CAST_` prefix (e.g., `CAST_SessionStart`, `CAST_SubagentStop`)
 - **Async required** — Event payloads must include `"async": true` (see `settings.json` — all hooks except SessionStart are async)
 - **Hook registration** — All hooks registered in `~/.claude/settings.json` at install time. Defines 7 hook handlers: SessionStart, SessionEnd, SubagentStart, SubagentStop, PostToolUse, PostToolUseFailure, PreCompact, PostCompact
-- **Database** — SQLite schema with 26+ tables; accessible via `sqlite3 ~/.claude/cast.db`
+- **Database** — SQLite schema with 38 tables; accessible via `sqlite3 ~/.claude/cast.db`
 
 ## Scripts
 - `observe-session-start.sh` — Records session metadata at start
