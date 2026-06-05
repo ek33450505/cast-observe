@@ -48,7 +48,6 @@ _step "Creating directories..."
 for dir in \
   "${HOME}/.claude/scripts" \
   "${HOME}/.claude/config" \
-  "${HOME}/.claude/observe" \
   "${HOME}/.claude/logs"
 do
   if mkdir -p "$dir" 2>/dev/null; then

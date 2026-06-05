@@ -1,6 +1,6 @@
 #!/bin/bash
 # observe-session-end.sh — cast-observe consolidated session-end hook
-# Hook events: Stop, SessionEnd
+# Hook events: SessionEnd
 # Timeout: 15 seconds
 #
 # Purpose:

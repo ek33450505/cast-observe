@@ -1,5 +1,19 @@
 # Changelog
 
+## [v0.2.1] — 2026-06-05
+
+### Fixed
+
+- `observe-db-init.sh`: removed `CHECK` constraint on `agent_runs.status` — writers emitting `abandoned`, `fallback`, or `unknown` statuses previously hit a constraint violation and lost the row (blocker-severity parity fix with flagship Phase 3)
+- `observe-subagent-stop.sh`: added multi-path `agent_response.content` (content_blocks) extraction so agents dispatched via newer Claude Code payload paths are no longer silently dropped
+- `observe-subagent-stop.sh`: `UPDATE agent_runs` now writes `duration_ms`, `tool_uses`, `response`, `cache_read_input_tokens`, and `cache_creation_input_tokens` columns (backport from flagship)
+- `observe-subagent-stop.sh`: auto-adds missing telemetry columns via `ALTER TABLE IF NOT EXISTS` guard for forward compatibility
+- README: corrected DB table count 37 → 38; removed false "Constellation 3D graph" claim from ecosystem block
+- CLAUDE.md: corrected DB table count 26+ → 38
+- SECURITY.md: added `0.2.x` as currently supported version
+- `install.sh`: removed dead `~/.claude/observe` directory creation (migrated to `~/.claude/cast` in v0.2.0)
+- Hook script header comments: updated stale `~/.claude/observe/` path references to `~/.claude/cast/`; removed deprecated `Stop` event from `observe-session-end.sh` header
+
 ## [0.2.0] - 2026-04-03
 
 ### Added

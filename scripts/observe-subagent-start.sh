@@ -4,7 +4,7 @@
 #
 # Fires when a subagent is spawned via the Agent tool.
 # Responsibilities:
-#   1. Emit task_claimed event to ~/.claude/observe/events/
+#   1. Emit task_claimed event to ~/.claude/cast/events/
 #   2. Mirror to cast.db agent_runs table (INSERT running row)
 #
 # Stdin JSON fields (SubagentStart):

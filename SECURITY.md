@@ -4,7 +4,8 @@
 
 | Version | Support Status |
 |---|---|
-| 0.1.x | Full support — security fixes backported |
+| 0.2.x | Full support — current release |
+| 0.1.x | Security fixes backported |
 | < 0.1 | No longer supported |
 
 ## Reporting a Vulnerability
