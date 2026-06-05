@@ -7,6 +7,11 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
+    # Advisory only — never block a PR when the reviewer can't authenticate
+    # (no ANTHROPIC_API_KEY / OIDC app on this repo). Matches the flagship
+    # cast-pr-review.yml pattern. Add the ANTHROPIC_API_KEY secret to re-enable
+    # actual review posting.
+    continue-on-error: true
     permissions:
       contents: read
       pull-requests: write

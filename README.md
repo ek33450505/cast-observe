@@ -103,7 +103,7 @@ All hooks run with `async: true` so they never block Claude Code.
 
 ## Schema
 
-cast-observe owns 4 of the 38 tables in `~/.claude/cast.db`:
+cast-observe owns 4 of the <!-- CAST_DB_TABLE_COUNT -->38<!-- /CAST_DB_TABLE_COUNT --> tables in `~/.claude/cast.db`:
 
 | Table | Purpose |
 |---|---|
